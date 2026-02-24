@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monitoring Rynku Kolejowego (dane z 2026-02-24)</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: #1a1d23;
+    color: #d4d4d4;
+    padding: 32px 48px;
+  }
+  h1 {
+    font-size: 20px;
+    font-weight: 600;
+    color: #e8e8e8;
+    margin-bottom: 4px;
+  }
+  .subtitle {
+    font-size: 13px;
+    color: #888;
+    margin-bottom: 4px;
+  }
+  .sample-date {
+    font-size: 11px;
+    color: #666;
+    margin-bottom: 28px;
+  }
+  .month-section {
+    margin-bottom: 36px;
+  }
+  table {
+    border-collapse: collapse;
+    width: auto;
+    font-size: 13px;
+  }
+  thead th {
+    text-align: left;
+    padding: 6px 12px;
+    font-weight: 600;
+    border-bottom: 2px solid #333;
+    white-space: nowrap;
+  }
+  .carrier-group {
+    text-align: center !important;
+    font-size: 12px;
+    letter-spacing: 0.5px;
+  }
+  .carrier-rj { color: #ffc107; border-bottom-color: #ffc107 !important; }
+  .carrier-leo { color: #ff6600; border-bottom-color: #ff6600 !important; }
+  .carrier-eic { color: #4a90d9; border-bottom-color: #4a90d9 !important; }
+  .carrier-ic { color: #7fb3e0; border-bottom-color: #7fb3e0 !important; }
+
+  .sub-header th {
+    font-weight: 400;
+    font-size: 11px;
+    color: #888;
+    padding: 4px 12px;
+    border-bottom: 1px solid #2a2d33;
+  }
+
+  tbody td {
+    padding: 7px 12px;
+    border-bottom: 1px solid #2a2d33;
+    white-space: nowrap;
+  }
+  tbody tr:hover { background: #22252b; }
+
+  .route { color: #e0e0e0; font-weight: 500; }
+  .route-intl { color: #aaa; font-style: italic; }
+
+  .sep { border-left: 2px solid #333; }
+
+  .num { text-align: right; }
+  .time { text-align: right; color: #aaa; font-size: 12px; }
+  .price { text-align: right; color: #c8c8c8; }
+  .seats { text-align: right; color: #aaa; }
+  .occ { text-align: right; }
+  .occ-high { color: #ff6b6b; }
+  .occ-med { color: #ffc107; }
+  .occ-low { color: #66bb6a; }
+  .na { color: #555; text-align: center; }
+
+  .totals td {
+    border-top: 2px solid #333;
+    font-weight: 600;
+    color: #b0b0b0;
+    padding-top: 8px;
+  }
+
+  .legend {
+    margin-top: 20px;
+    font-size: 11px;
+    color: #666;
+    line-height: 1.8;
+  }
+  .legend span { margin-right: 16px; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+  .dot-rj { background: #ffc107; }
+  .dot-leo { background: #ff6600; }
+  .dot-eic { background: #4a90d9; }
+  .dot-ic { background: #7fb3e0; }
+
+  .tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 24px;
+  }
+  .tab {
+    padding: 8px 20px;
+    background: #22252b;
+    color: #888;
+    border: 1px solid #333;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .tab:first-child { border-radius: 4px 0 0 4px; }
+  .tab:last-child { border-radius: 0 4px 4px 0; }
+  .tab.active {
+    background: #2a2d33;
+    color: #e0e0e0;
+    border-color: #555;
+  }
+
+  .status-msg {
+    padding: 40px 0;
+    text-align: center;
+    color: #888;
+    font-size: 14px;
+  }
+  .status-msg a {
+    color: #4a90d9;
+    cursor: pointer;
+    text-decoration: underline;
+  }
+  .footer-meta {
+    margin-top: 12px;
+    font-size: 11px;
+    color: #555;
+  }
+</style>
+</head>
+<body>
+
+<h1>Monitoring Rynku Kolejowego</h1>
+<div class="subtitle" id="subtitle"></div>
+<div class="sample-date" id="sample-date"></div>
+
+<div class="tabs" id="tabs"></div>
+
+<div id="content">
+  <div class="status-msg">Ladowanie danych...</div>
+</div>
+
+<div class="legend" id="legend" style="display:none;">
+  <span><span class="dot dot-rj"></span>RegioJet</span>
+  <span><span class="dot dot-leo"></span>Leo Express</span>
+  <span><span class="dot dot-eic"></span>EIC / EIP (express)</span>
+  <span><span class="dot dot-ic"></span>IC (pospieszny)</span>
+  <br>
+  <span>Poc. = pociagi/dzien</span>
+  <span>Czas = typowy czas przejazdu</span>
+  <span>Wolne = wolne miejsca</span>
+  <span class="occ-low">niska</span>
+  <span class="occ-med">srednia</span>
+  <span class="occ-high">wysoka zajetosc</span>
+</div>
+
+<div class="footer-meta" id="footer-meta"></div>
+
+<script>
+window.__BAKED={"2026-02-25":{"data":{"date":"2026-02-25","routes":[{"name":"Warszawa - Krakow","name_pl":"Warszawa - Kraków","international":false,"carriers":{"RJ":{"trains":4,"travel_time":"2h37","price_min":39.0,"price_max":79.0,"free_seats":427,"total_seats":null,"occupancy_pct":null},"LEO":{"trains":2,"travel_time":"2h58","price_min":34,"price_max":236,"free_seats":215,"total_seats":422,"occupancy_pct":49.0},"EIC":{"trains":13,"travel_time":"2h32","price_min":89.4,"price_max":169.0,"free_seats":null,"total_seats":null,"occupancy_pct":null},"IC":{"trains":11,"travel_time":"4h05","price_min":42.0,"price_max":70.0,"free_seats":null,"total_seats":null,"occupancy_pct":null}}},{"name":"Warszawa - Gdynia","name_pl":"Warszawa - Gdynia","international":false,"carriers":{"RJ":{"trains":3,"travel_time":"3h00","price_min":39.0,"price_max":79.0,"free_seats":424,"total_seats":null,"occupancy_pct":null},"LEO":null,"EIC":{"trains":16,"travel_time":"2h58","price_min":81.95,"price_max":169.0,"free_seats":null,"total_seats":null,"occupancy_pct":null},"IC":{"trains":8,"travel_time":"3h38","price_min":50.4,"price_max":72.0,"free_seats":null,"total_seats":null,"occupancy_pct":null}}},{"name":"Gdynia - Krakow","name_pl":"Gdynia - Kraków","international":false,"carriers":{"RJ":{"trains":2,"travel_time":"6h17","price_min":75.0,"price_max":109.0,"free_seats":92,"total_seats":null,"occupancy_pct":null},"LEO":null,"EIC":{"trains":11,"travel_time":"5h40","price_min":159.03,"price_max":225.0,"free_seats":null,"total_seats":null,"occupancy_pct":null},"IC":{"trains":2,"travel_time":"7h26","price_min":64.4,"price_max":89.0,"free_seats":null,"total_seats":null,"occupancy_pct":null}}},{"name":"Warszawa - Poznan","name_pl":"Warszawa - Poznań","international":false,"carriers":{"RJ":{"trains":2,"travel_time":"2h16","price_min":27.0,"price_max":79.0,"free_seats":373,"total_seats":null,"occupancy_pct":null},"LEO":null,"EIC":{"trains":13,"travel_time":"2h24","price_min":47.0,"price_max":157.17,"free_seats":null,"total_seats":null,"occupancy_pct":null},"IC":{"trains":10,"travel_time":"2h46","price_min":37.0,"price_max":72.0,"free_seats":null,"total_seats":null,"occupancy_pct":null}}},{"name":"Krakow - Przemysl","name_pl":"Kraków - Przemyśl","international":false,"carriers":{"RJ":{"trains":1,"travel_time":"2h44","price_min":39.0,"price_max":39.0,"free_seats":57,"total_seats":null,"occupancy_pct":null},"LEO":null,"EIC":null,"IC":null}},{"name":"Krakow - Praha","name_pl":"Kraków - Praga","international":true,"carriers":{"RJ":{"trains":15,"travel_time":"7h18","price_min":74.84,"price_max":401.04,"free_seats":772,"total_seats":null,"occupancy_pct":null},"LEO":{"trains":1,"travel_time":"6h18","price_min":82,"price_max":172,"free_seats":103,"total_seats":208,"occupancy_pct":50.0},"EIC":null,"IC":null}},{"name":"Warszawa - Praha","name_pl":"Warszawa - Praga","international":true,"carriers":{"RJ":{"trains":6,"travel_time":"9h11","price_min":89.0,"price_max":179.0,"free_seats":335,"total_seats":null,"occupancy_pct":null},"LEO":{"trains":2,"travel_time":"9h14","price_min":142,"price_max":652,"free_seats":117,"total_seats":403,"occupancy_pct":71.0},"EIC":null,"IC":null}},{"name":"Praha - Przemysl","name_pl":"Praga - Przemyśl","international":true,"carriers":{"RJ":{"trains":3,"travel_time":"9h31","price_min":43.0,"price_max":730.44,"free_seats":314,"total_seats":null,"occupancy_pct":null},"LEO":{"trains":1,"travel_time":"9h00","price_min":62,"price_max":62,"free_seats":146,"total_seats":168,"occupancy_pct":13.0},"EIC":null,"IC":null}}],"totals":{"RJ":{"trains":36,"free_seats":2794,"total_seats":null,"occupancy_pct":null},"LEO":{"trains":6,"free_seats":581,"total_seats":1201,"occupancy_pct":52.0},"EIC":{"trains":53,"free_seats":null,"total_seats":null,"occupancy_pct":null},"IC":{"trains":31,"free_seats":null,"total_seats":null,"occupancy_pct":null}}},"meta":{"fetched_at":"2026-02-24T21:33:38","date":"2026-02-25","cached":false,"fetch_time_ms":31616}},"2026-03-15":{"data":{"date":"2026-03-15","routes":[{"name":"Warszawa - Krakow","name_pl":"Warszawa - Kraków","international":false,"carriers":{"RJ":{"trains":4,"travel_time":"2h58","price_min":39.0,"price_max":119.0,"free_seats":774,"total_seats":null,"occupancy_pct":null},"LEO":{"trains":2,"travel_time":"3h14","price_min":34,"price_max":148,"free_seats":382,"total_seats":428,"occupancy_pct":11.0},"EIC":{"trains":11,"travel_time":"2h51","price_min":51.0,"price_max":169.0,"free_seats":null,"total_seats":null,"occupancy_pct":null},"IC":{"trains":12,"travel_time":"4h24","price_min":19.0,"price_max":70.0,"free_seats":null,"total_seats":null,"occupancy_pct":null}}},{"name":"Warszawa - Gdynia","name_pl":"Warszawa - Gdynia","international":false,"carriers":{"RJ":{"trains":3,"travel_time":"3h00","price_min":79.0,"price_max":119.0,"free_seats":619,"total_seats":null,"occupancy_pct":null},"LEO":null,"EIC":{"trains":16,"travel_time":"2h58","price_min":51.0,"price_max":169.0,"free_seats":null,"total_seats":null,"occupancy_pct":null},"IC":{"trains":9,"travel_time":"3h37","price_min":39.6,"price_max":72.0,"free_seats":null,"total_seats":null,"occupancy_pct":null}}},{"name":"Gdynia - Krakow","name_pl":"Gdynia - Kraków","international":false,"carriers":{"RJ":{"trains":2,"travel_time":"6h39","price_min":99.0,"price_max":199.0,"free_seats":334,"total_seats":null,"occupancy_pct":null},"LEO":null,"EIC":{"trains":11,"travel_time":"5h59","price_min":94.05,"price_max":225.0,"free_seats":null,"total_seats":null,"occupancy_pct":null},"IC":{"trains":1,"travel_time":"8h09","price_min":92.0,"price_max":92.0,"free_seats":null,"total_seats":null,"occupancy_pct":null}}},{"name":"Warszawa - Poznan","name_pl":"Warszawa - Poznań","international":false,"carriers":{"RJ":{"trains":6,"travel_time":"2h17","price_min":27.0,"price_max":119.0,"free_seats":1347,"total_seats":null,"occupancy_pct":null},"LEO":null,"EIC":{"trains":11,"travel_time":"2h24","price_min":47.0,"price_max":157.17,"free_seats":null,"total_seats":null,"occupancy_pct":null},"IC":{"trains":10,"travel_time":"2h45","price_min":28.0,"price_max":72.0,"free_seats":null,"total_seats":null,"occupancy_pct":null}}},{"name":"Krakow - Przemysl","name_pl":"Kraków - Przemyśl","international":false,"carriers":{"RJ":{"trains":1,"travel_time":"2h33","price_min":69.0,"price_max":69.0,"free_seats":6,"total_seats":null,"occupancy_pct":null},"LEO":null,"EIC":null,"IC":null}},{"name":"Krakow - Praha","name_pl":"Kraków - Praga","international":true,"carriers":{"RJ":{"trains":15,"travel_time":"7h18","price_min":57.0,"price_max":658.84,"free_seats":1283,"total_seats":null,"occupancy_pct":null},"LEO":{"trains":4,"travel_time":"6h09","price_min":68,"price_max":356,"free_seats":501,"total_seats":856,"occupancy_pct":41.0},"EIC":null,"IC":null}},{"name":"Warszawa - Praha","name_pl":"Warszawa - Praga","international":true,"carriers":{"RJ":{"trains":5,"travel_time":"9h02","price_min":89.0,"price_max":179.0,"free_seats":962,"total_seats":null,"occupancy_pct":null},"LEO":{"trains":2,"travel_time":"9h36","price_min":118,"price_max":620,"free_seats":193,"total_seats":428,"occupancy_pct":55.0},"EIC":null,"IC":null}},{"name":"Praha - Przemysl","name_pl":"Praga - Przemyśl","international":true,"carriers":{"RJ":{"trains":3,"travel_time":"8h37","price_min":43.0,"price_max":730.44,"free_seats":758,"total_seats":null,"occupancy_pct":null},"LEO":{"trains":1,"travel_time":"9h00","price_min":62,"price_max":62,"free_seats":146,"total_seats":168,"occupancy_pct":13.0},"EIC":null,"IC":null}}],"totals":{"RJ":{"trains":39,"free_seats":6083,"total_seats":null,"occupancy_pct":null},"LEO":{"trains":9,"free_seats":1222,"total_seats":1880,"occupancy_pct":35.0},"EIC":{"trains":49,"free_seats":null,"total_seats":null,"occupancy_pct":null},"IC":{"trains":32,"free_seats":null,"total_seats":null,"occupancy_pct":null}}},"meta":{"fetched_at":"2026-02-24T21:34:05","date":"2026-03-15","cached":false,"fetch_time_ms":26663}}};
+window.__BAKED_TABS=[{"label":"Luty 2026","date":"2026-02-25"},{"label":"Marzec 2026","date":"2026-03-15"}];
+(function(){
+  var _orig=window.fetch;
+  window.fetch=function(url){
+    var m=url.match(/date=([^&]+)/);
+    if(m&&window.__BAKED[decodeURIComponent(m[1])]){
+      var d=window.__BAKED[decodeURIComponent(m[1])];
+      return Promise.resolve({ok:true,json:function(){return Promise.resolve(d);}});
+    }
+    return _orig.apply(this,arguments);
+  };
+})();
+</script>
+<script>
+(function() {
+  var MONTHS_PL = ["Styczen", "Luty", "Marzec", "Kwiecien", "Maj", "Czerwiec",
+                   "Lipiec", "Sierpien", "Wrzesien", "Pazdziernik", "Listopad", "Grudzien"];
+
+  var today = new Date();
+  var curYear = today.getFullYear();
+  var curMonth = today.getMonth(); // 0-indexed
+
+  var nextMonth = (curMonth + 1) % 12;
+  var nextYear = curMonth === 11 ? curYear + 1 : curYear;
+
+  // Representative dates
+  function getRepDate(monthIdx, year) {
+    if (monthIdx === curMonth && year === curYear) {
+      var tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      if (tomorrow.getMonth() !== curMonth) {
+        return formatDate(today);
+      }
+      return formatDate(tomorrow);
+    }
+    return year + "-" + pad(monthIdx + 1) + "-15";
+  }
+
+  function pad(n) { return n < 10 ? "0" + n : "" + n; }
+
+  function formatDate(d) {
+    return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+  }
+
+  var tabs = (window.__BAKED_TABS || []).map(function(t) {
+    var parts = t.date.split("-");
+    return { label: t.label, date: t.date, month: parseInt(parts[1],10)-1, year: parseInt(parts[0],10) };
+  });
+
+  var activeTab = 0;
+
+  function renderTabs() {
+    var container = document.getElementById("tabs");
+    container.innerHTML = "";
+    for (var i = 0; i < tabs.length; i++) {
+      var div = document.createElement("div");
+      div.className = "tab" + (i === activeTab ? " active" : "");
+      div.textContent = tabs[i].label;
+      div.setAttribute("data-idx", i);
+      div.addEventListener("click", function() {
+        var idx = parseInt(this.getAttribute("data-idx"));
+        if (idx === activeTab) return;
+        activeTab = idx;
+        renderTabs();
+        fetchData(tabs[idx].date);
+      });
+      container.appendChild(div);
+    }
+    var tab = tabs[activeTab];
+    document.getElementById("subtitle").innerHTML =
+      "Dane z API przewoznikow &bull; " + MONTHS_PL[tab.month] + " " + tab.year;
+  }
+
+  function occClass(pct) {
+    if (pct === null || pct === undefined) return "";
+    if (pct < 40) return "occ-low";
+    if (pct <= 60) return "occ-med";
+    return "occ-high";
+  }
+
+  function esc(s) {
+    if (s === null || s === undefined) return "";
+    var d = document.createElement("div");
+    d.textContent = String(s);
+    return d.innerHTML;
+  }
+
+  function carrierCells5(c) {
+    if (!c) {
+      return '<td class="na sep">&mdash;</td><td class="na">&mdash;</td><td class="na">&mdash;</td><td class="na">&mdash;</td><td class="na">&mdash;</td>';
+    }
+    var priceStr = (c.price_min !== null && c.price_min !== undefined)
+      ? (c.price_min === c.price_max ? esc(c.price_min) : esc(c.price_min) + " - " + esc(c.price_max))
+      : "&mdash;";
+    var seatsStr = (c.free_seats !== null && c.free_seats !== undefined) ? esc(c.free_seats) : "&mdash;";
+    var seatsClass = (c.free_seats !== null && c.free_seats !== undefined) ? "seats" : "na";
+    var occStr, occCls;
+    if (c.occupancy_pct !== null && c.occupancy_pct !== undefined) {
+      occStr = c.occupancy_pct + "%";
+      occCls = "occ " + occClass(c.occupancy_pct);
+    } else {
+      occStr = "&mdash;";
+      occCls = "na";
+    }
+    return '<td class="num sep">' + esc(c.trains) + '</td>' +
+           '<td class="time">' + esc(c.travel_time || "") + '</td>' +
+           '<td class="price">' + priceStr + '</td>' +
+           '<td class="' + seatsClass + '">' + seatsStr + '</td>' +
+           '<td class="' + occCls + '">' + occStr + '</td>';
+  }
+
+  function carrierCells3(c) {
+    if (!c) {
+      return '<td class="na sep">&mdash;</td><td class="na">&mdash;</td><td class="na">&mdash;</td>';
+    }
+    var priceStr = (c.price_min !== null && c.price_min !== undefined)
+      ? (c.price_min === c.price_max ? esc(c.price_min) : esc(c.price_min) + " - " + esc(c.price_max))
+      : "&mdash;";
+    return '<td class="num sep">' + esc(c.trains) + '</td>' +
+           '<td class="time">' + esc(c.travel_time || "") + '</td>' +
+           '<td class="price">' + priceStr + '</td>';
+  }
+
+  function totalsCells5(t) {
+    if (!t) {
+      return '<td class="na sep">&mdash;</td><td></td><td></td><td class="na">&mdash;</td><td class="na">&mdash;</td>';
+    }
+    var seatsStr = "&mdash;";
+    var seatsClass = "na";
+    if (t.free_seats !== null && t.free_seats !== undefined) {
+      if (t.total_seats !== null && t.total_seats !== undefined) {
+        seatsStr = esc(t.free_seats) + " / " + esc(t.total_seats);
+      } else {
+        seatsStr = esc(t.free_seats);
+      }
+      seatsClass = "seats";
+    }
+    var occStr, occCls;
+    if (t.occupancy_pct !== null && t.occupancy_pct !== undefined) {
+      occStr = t.occupancy_pct + "%";
+      occCls = "occ " + occClass(t.occupancy_pct);
+    } else {
+      occStr = "&mdash;";
+      occCls = "na";
+    }
+    return '<td class="num sep">' + esc(t.trains) + '</td><td></td><td></td>' +
+           '<td class="' + seatsClass + '">' + seatsStr + '</td>' +
+           '<td class="' + occCls + '">' + occStr + '</td>';
+  }
+
+  function totalsCells3(t) {
+    if (!t) {
+      return '<td class="na sep">&mdash;</td><td></td><td></td>';
+    }
+    return '<td class="num sep">' + esc(t.trains) + '</td><td></td><td></td>';
+  }
+
+  function renderTable(data) {
+    var routes = data.routes || [];
+    var totals = data.totals || {};
+
+    var html = '<table><thead><tr>' +
+      '<th rowspan="2" style="vertical-align:bottom;">Trasa</th>' +
+      '<th colspan="5" class="carrier-group carrier-rj sep">REGIOJET</th>' +
+      '<th colspan="5" class="carrier-group carrier-leo sep">LEO EXPRESS</th>' +
+      '<th colspan="3" class="carrier-group carrier-eic sep">EIC / EIP</th>' +
+      '<th colspan="3" class="carrier-group carrier-ic sep">IC</th>' +
+      '</tr><tr class="sub-header">' +
+      '<th class="sep">Poc.</th><th>Czas</th><th>Cena (zl)</th><th>Wolne</th><th>Zajete</th>' +
+      '<th class="sep">Poc.</th><th>Czas</th><th>Cena (zl)</th><th>Wolne</th><th>Zajete</th>' +
+      '<th class="sep">Poc.</th><th>Czas</th><th>Cena (zl)</th>' +
+      '<th class="sep">Poc.</th><th>Czas</th><th>Cena (zl)</th>' +
+      '</tr></thead><tbody>';
+
+    for (var i = 0; i < routes.length; i++) {
+      var r = routes[i];
+      var carriers = r.carriers || {};
+      var routeClass = r.international ? "route route-intl" : "route";
+      html += '<tr><td class="' + routeClass + '">' + esc(r.name_pl || r.name) + '</td>';
+      html += carrierCells5(carriers.RJ);
+      html += carrierCells5(carriers.LEO);
+      html += carrierCells3(carriers.EIC);
+      html += carrierCells3(carriers.IC);
+      html += '</tr>';
+    }
+
+    // Totals row
+    html += '<tr class="totals"><td>Razem</td>';
+    html += totalsCells5(totals.RJ);
+    html += totalsCells5(totals.LEO);
+    html += totalsCells3(totals.EIC);
+    html += totalsCells3(totals.IC);
+    html += '</tr>';
+
+    html += '</tbody></table>';
+    return html;
+  }
+
+  function fetchData(date) {
+    var contentEl = document.getElementById("content");
+    var legendEl = document.getElementById("legend");
+    var footerEl = document.getElementById("footer-meta");
+    var sampleEl = document.getElementById("sample-date");
+
+    contentEl.innerHTML = '<div class="status-msg">Ladowanie danych...</div>';
+    legendEl.style.display = "none";
+    footerEl.textContent = "";
+    sampleEl.textContent = "";
+
+    var url = "/api/overview?date=" + encodeURIComponent(date);
+    fetch(url)
+      .then(function(resp) {
+        if (!resp.ok) throw new Error("HTTP " + resp.status);
+        return resp.json();
+      })
+      .then(function(json) {
+        var data = json.data;
+        var meta = json.meta || {};
+
+        contentEl.innerHTML = '<div class="month-section">' + renderTable(data) + '</div>';
+        legendEl.style.display = "block";
+
+        sampleEl.textContent = "Probka: " + (meta.date || date);
+
+        if (meta.fetch_time_ms !== null && meta.fetch_time_ms !== undefined) {
+          footerEl.textContent = "Czas odpowiedzi: " + meta.fetch_time_ms + "ms";
+        }
+      })
+      .catch(function(err) {
+        contentEl.innerHTML = '<div class="status-msg">Blad polaczenia z API. <a id="retry-link">Sprobuj ponownie.</a></div>';
+        document.getElementById("retry-link").addEventListener("click", function() {
+          fetchData(date);
+        });
+      });
+  }
+
+  // Init
+  renderTabs();
+  fetchData(tabs[0].date);
+})();
+</script>
+</body>
+</html>
